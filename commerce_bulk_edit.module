@@ -1,0 +1,100 @@
+<?php
+
+function commerce_bulk_edit_menu() {
+  $items['admin/bulk-edit-products'] = array(
+    'title' => 'Bulk Edit Products', //page title
+    'description' => 'Bulk edit product form',
+    'page callback' => 'drupal_get_form', //this is the function that will be called when the page is accessed.  for a form, use drupal_get_form
+    'page arguments' => array('commerce_bulk_edit_form'), //put the name of the form here
+    'access callback' => TRUE
+  );
+  return $items;
+}
+
+function commerce_bulk_edit_form($form, &$form_state) {
+ /*   $query=new EntityFieldQuery;
+
+    $query= $query->entityCondition('entity_type','commerce_product')->execute();
+	
+	$pids = array();
+	foreach($query['commerce_product'] as $record) {
+    $pids[] = $record->product_id;
+	}
+	$products = entity_load('commerce_product', $pids);
+    dpm($products); */
+
+    //dpm($query);
+	$query = new EntityFieldQuery();
+	$query->entityCondition('entity_type', 'node')
+	->entityCondition('bundle', 'product_display');
+	$entity_type = 'node';
+	$result = $query->execute();	
+	if (!empty($result[$entity_type])) {
+	$entities = entity_load($entity_type, array_keys($result[$entity_type]));
+	}
+	$nodes = entity_load('node', array_keys($result['node']));
+    //dpm($products);
+    dpm($nodes);
+
+	
+  $form['commerce_product_displays'] = array(
+    '#title' => t('Which product display?') ,
+    '#type' => 'select',
+    '#required' => TRUE,
+    '#options' => commerce_product_display_options(),
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+	'#value' => 'Submit',
+  );
+  return $form;
+}
+
+function commerce_bulk_edit_form_submit($form, &$form_state) {
+    //loading product displays based on selected ID
+	$product_display = node_load($form_state['values']['commerce_product_displays']);
+    dpm($product_display);
+	
+	$pids = array();
+	foreach ($product_display->field_product[LANGUAGE_NONE] as $key=>$value) {
+	$pids[] = $value['product_id'];
+	}
+	
+    //saving products
+	/*
+    $query=new EntityFieldQuery;
+
+    $query= $query->entityCondition('entity_type','commerce_product')->execute();
+	
+	$pids = array();
+	foreach($query['commerce_product'] as $record) {
+    $pids[] = $record->product_id;
+	} */
+	$products = entity_load('commerce_product', $pids);
+    //dpm($products);
+
+    foreach($products as $product){
+       $product->commerce_price[LANGUAGE_NONE][0]['amount'] = 30000;
+       commerce_product_save($product);
+    } 
+}
+
+function commerce_product_display_options() {
+	$query = new EntityFieldQuery();
+	$query->entityCondition('entity_type', 'node')
+	->entityCondition('bundle', 'product_display');
+	$entity_type = 'node';
+	$result = $query->execute();	
+	if (!empty($result[$entity_type])) {
+	$entities = entity_load($entity_type, array_keys($result[$entity_type]));
+	}
+	$nodes = entity_load('node', array_keys($result['node']));
+    //dpm($products);
+    dpm($nodes);
+    $select_options = array();
+    foreach($nodes as $product_displays) {
+      $select_options[$product_displays->nid] = $product_displays->title;
+    }
+
+    return $select_options;	
+}

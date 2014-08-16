@@ -12,36 +12,57 @@ function commerce_bulk_edit_menu() {
 }
 
 function commerce_bulk_edit_form($form, &$form_state) {
-    entity_form('entity_type', 'commerce_product');
-
-    $product = commerce_product_load('1');
-    dpm($product);
-    //dpm($query);
-	$query = new EntityFieldQuery();
-	$query->entityCondition('entity_type', 'node')
-	->entityCondition('bundle', 'product_display');
-	$entity_type = 'node';
-	$result = $query->execute();	
-	if (!empty($result[$entity_type])) {
-	$entities = entity_load($entity_type, array_keys($result[$entity_type]));
-	}
-	$nodes = entity_load('node', array_keys($result['node']));
-    //dpm($products);
-
-	
   $form['commerce_product_displays'] = array(
-    '#title' => t('Which product display?') ,
+    '#title' => t('Product Display') ,
     '#type' => 'select',
     '#required' => TRUE,
     '#options' => commerce_product_display_options(),
+	'#ajax' => array(
+	  'callback' => 'commerce_product_displays_ajax',
+	  'wrapper' => 'cbe-preview',
+	  'method' => 'replace',
+	  'effect' => 'fade',
+	),
   );
-$form['commerce_bulk_edit_image'] = array(
-  '#title' => t('Image'),
-  '#type' => 'managed_file',
-  '#description' => t('The uploaded image will be displayed on this page using the image style choosen below.'),
-  '#default_value' => '',
-  '#upload_location' => 'public://bulk_edit_products/',
-);
+  $form['product_preview'] = array(
+    '#title' => t("Product Preview"),
+    // The prefix/suffix provide the div that we're replacing, named by
+    // #ajax['wrapper'] above.
+    '#prefix' => '<div id="cbe-preview">',
+    '#suffix' => '</div>',
+    '#type' => 'markup',
+    '#description' => t('This is my markup field'),
+  );
+  
+  $form['fox_wrapper']['#markup'] = t('The quick @color fox jumps over the lazy dog.', array('@color' => $form_state['values']['fox_color']));
+
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  $form['commerce_bulk_edit_image'] = array(
+    '#title' => t('Image'),
+    '#type' => 'managed_file',
+    '#description' => t('The uploaded image will be displayed on this page using the image style choosen below.'),
+    '#default_value' => '',
+    '#upload_location' => 'public://bulk_edit_products/',
+  );
+  $form['commerce_bulk_edit_price'] = array(
+    '#title' => t('Price') ,
+    '#type' => 'textfield',
+    '#required' => FALSE,
+	'#size' => 30,
+  );
   $form['submit'] = array(
     '#type' => 'submit',
 	'#value' => 'Submit',
@@ -49,34 +70,28 @@ $form['commerce_bulk_edit_image'] = array(
   return $form;
 }
 
+function commerce_product_displays_ajax($form, &$form_state) {
+  return $form['product_preview'];
+}
+
 function commerce_bulk_edit_form_submit($form, &$form_state) {
+    dpm($form_state);
     //loading product displays based on selected ID
 	$product_display = node_load($form_state['values']['commerce_product_displays']);
-	dpm($form_state);
-	
 	$pids = array();
 	foreach ($product_display->field_product[LANGUAGE_NONE] as $key=>$value) {
 	$pids[] = $value['product_id'];
 	}
 	//file
 	$file = file_load($form_state['values']['commerce_bulk_edit_image']);
-	//dpm($file);
-	
-    //saving products
-	/*
-    $query=new EntityFieldQuery;
-
-    $query= $query->entityCondition('entity_type','commerce_product')->execute();
-	
-	$pids = array();
-	foreach($query['commerce_product'] as $record) {
-    $pids[] = $record->product_id;
-	} */
+    //loading products
 	$products = entity_load('commerce_product', $pids);
-    //dpm($products);
-
+	//saving products
     foreach($products as $product){
-       $product->commerce_price[LANGUAGE_NONE][0]['amount'] = 30000;
+	if ($form_state['values']['commerce_bulk_edit_price'] !== 0) {
+       $product->commerce_price[LANGUAGE_NONE][0]['amount'] = $form_state['values']['commerce_bulk_edit_price']*100;
+	}
+	if ($form_state['values']['commerce_bulk_edit_image'] !== 0) {
 	   $product->field_image[LANGUAGE_NONE][0]['fid'] = $file->fid;
 	   $product->field_image[LANGUAGE_NONE][0]['uid'] = $file->uid;
 	   $product->field_image[LANGUAGE_NONE][0]['filename'] = $file->filename;
@@ -86,9 +101,13 @@ function commerce_bulk_edit_form_submit($form, &$form_state) {
 	   $product->field_image[LANGUAGE_NONE][0]['status'] = $file->status;
 	   $product->field_image[LANGUAGE_NONE][0]['timestamp'] = $file->timestamp;
 	   $product->field_image[LANGUAGE_NONE][0]['rdf_mapping'] = $file->rdf_mapping;
+	}
        commerce_product_save($product);
     } 
 }
+/*
+* Select Options callback
+*/
 
 function commerce_product_display_options() {
 	$query = new EntityFieldQuery();

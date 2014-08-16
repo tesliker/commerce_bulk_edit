@@ -20,35 +20,32 @@ function commerce_bulk_edit_form($form, &$form_state) {
 	'#ajax' => array(
 	  'callback' => 'commerce_product_displays_ajax',
 	  'wrapper' => 'cbe-preview',
-	  'method' => 'replace',
-	  'effect' => 'fade',
 	),
   );
   $form['product_preview'] = array(
-    '#title' => t("Product Preview"),
     // The prefix/suffix provide the div that we're replacing, named by
     // #ajax['wrapper'] above.
     '#prefix' => '<div id="cbe-preview">',
     '#suffix' => '</div>',
     '#type' => 'markup',
-    '#description' => t('This is my markup field'),
   );
-  
-  $form['fox_wrapper']['#markup'] = t('The quick @color fox jumps over the lazy dog.', array('@color' => $form_state['values']['fox_color']));
-
-
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+ 
+  if( (isset($form_state['values']['commerce_product_displays'])) && ($form_state['values']['commerce_product_displays'] != '') ) {
+    $node = node_load($form_state['values']['commerce_product_displays']);
+	//pm($node);
+	$form['product_preview']['#markup'] = '<ul>';
+	
+	$product_id = array();
+	foreach ($node->field_product[LANGUAGE_NONE] as $key=>$value) {
+	$product_id[] = $value['product_id'];
+	}
+	
+	$products = commerce_product_load_multiple($product_id);
+	foreach ($products as $product) {
+	$form['product_preview']['#markup'] .= '<li>'.$product->title.'</li>';
+	}  
+	$form['product_preview']['#markup'] .= '</ul>';
+  }
   
   $form['commerce_bulk_edit_image'] = array(
     '#title' => t('Image'),
@@ -75,7 +72,6 @@ function commerce_product_displays_ajax($form, &$form_state) {
 }
 
 function commerce_bulk_edit_form_submit($form, &$form_state) {
-    dpm($form_state);
     //loading product displays based on selected ID
 	$product_display = node_load($form_state['values']['commerce_product_displays']);
 	$pids = array();

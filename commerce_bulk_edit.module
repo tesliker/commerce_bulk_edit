@@ -12,6 +12,15 @@ function commerce_bulk_edit_menu() {
 }
 
 function commerce_bulk_edit_form($form, &$form_state) {
+	$query = new EntityFieldQuery();
+	$query->entityCondition('entity_type', 'node')
+	->entityCondition('bundle', 'product_display');
+	$entity_type = 'node';
+	$result = $query->execute(); 
+	
+	//$myprod = commerce_product_load('33218');
+	//dpm($myprod);
+	
   $form['commerce_product_displays'] = array(
     '#title' => t('Product Display') ,
     '#type' => 'select',
@@ -55,16 +64,61 @@ function commerce_bulk_edit_form($form, &$form_state) {
     '#upload_location' => 'public://bulk_edit_products/',
   );
   $form['commerce_bulk_edit_price'] = array(
-    '#title' => t('Price') ,
+    '#title' => t('Sell Price') ,
     '#type' => 'textfield',
     '#required' => FALSE,
 	'#size' => 30,
   );
+  $form['commerce_bulk_edit_list_price'] = array(
+    '#title' => t('List Price') ,
+    '#type' => 'textfield',
+    '#required' => FALSE,
+	'#size' => 30,
+  );
+  $form['commerce_bulk_edit_color_filter'] = array(
+    '#title' => t('Only Apply changes to a certain color') ,
+    '#type' => 'checkbox',
+    '#required' => FALSE,
+  );
+  $color = field_info_field('field_color');
+  $form['commerce_bulk_edit_color'] = array(
+    '#title' => t('Color') ,
+    '#type' => 'select',
+    '#required' => FALSE,
+    '#options' => $color['settings']['allowed_values'],
+    '#states' => array(
+      // Hide the settings when the cancel notify checkbox is disabled.
+      'invisible' => array(
+       ':input[name="commerce_bulk_edit_color_filter"]' => array('checked' => FALSE),
+      ),
+    ),
+  );
+  /*
+  $form['commerce_bulk_edit_size_filter'] = array(
+    '#title' => t('Only Apply changes to a certain size') ,
+    '#type' => 'checkbox',
+    '#required' => FALSE,
+  );
+  $size = field_info_field('field_size');
+  $form['commerce_bulk_edit_size'] = array(
+    '#title' => t('Size') ,
+    '#type' => 'select',
+    '#required' => FALSE,
+    '#options' => $size['settings']['allowed_values'],
+    '#states' => array(
+      // Hide the settings when the cancel notify checkbox is disabled.
+      'invisible' => array(
+       ':input[name="commerce_bulk_edit_size_filter"]' => array('checked' => FALSE),
+      ),
+    ),
+  );
+  */
   $form['submit'] = array(
     '#type' => 'submit',
 	'#value' => 'Submit',
   );
   return $form;
+  
 }
 
 function commerce_product_displays_ajax($form, &$form_state) {
@@ -72,6 +126,7 @@ function commerce_product_displays_ajax($form, &$form_state) {
 }
 
 function commerce_bulk_edit_form_submit($form, &$form_state) {
+	//dpm($form_state);
     //loading product displays based on selected ID
 	$product_display = node_load($form_state['values']['commerce_product_displays']);
 	$pids = array();
@@ -83,29 +138,65 @@ function commerce_bulk_edit_form_submit($form, &$form_state) {
     //loading products
 	$products = entity_load('commerce_product', $pids);
 	//saving products
+	drupal_set_message('Products attributes have been changed for '.t($product_display->title));
     foreach($products as $product){
-	if ($form_state['values']['commerce_bulk_edit_price'] !== 0) {
-       $product->commerce_price[LANGUAGE_NONE][0]['amount'] = $form_state['values']['commerce_bulk_edit_price']*100;
-	}
-	if ($form_state['values']['commerce_bulk_edit_image'] !== 0) {
-	   $product->field_image[LANGUAGE_NONE][0]['fid'] = $file->fid;
-	   $product->field_image[LANGUAGE_NONE][0]['uid'] = $file->uid;
-	   $product->field_image[LANGUAGE_NONE][0]['filename'] = $file->filename;
-	   $product->field_image[LANGUAGE_NONE][0]['uri'] = $file->uri;
-	   $product->field_image[LANGUAGE_NONE][0]['filemime'] = $file->filename;
-	   $product->field_image[LANGUAGE_NONE][0]['filesize'] = $file->filesize;
-	   $product->field_image[LANGUAGE_NONE][0]['status'] = $file->status;
-	   $product->field_image[LANGUAGE_NONE][0]['timestamp'] = $file->timestamp;
-	   $product->field_image[LANGUAGE_NONE][0]['rdf_mapping'] = $file->rdf_mapping;
-	}
-       commerce_product_save($product);
+	    if($form_state['values']['commerce_bulk_edit_color_filter'] == 0) {
+			if ($form_state['values']['commerce_bulk_edit_price'] !== '') {
+			   $product->commerce_price[LANGUAGE_NONE][0]['amount'] = $form_state['values']['commerce_bulk_edit_price']*100;
+			   $product->commerce_price[LANGUAGE_NONE][0]['currency_code'] = 'USD';
+			}
+			if ($form_state['values']['commerce_bulk_edit_list_price'] !== '') {
+			   $product->field_sell_price[LANGUAGE_NONE][0]['amount'] = $form_state['values']['commerce_bulk_edit_list_price']*100;
+			   $product->field_sell_price[LANGUAGE_NONE][0]['currency_code'] = 'USD';
+			}
+			if ($form_state['values']['commerce_bulk_edit_image'] !== 0) {
+			   $product->field_image[LANGUAGE_NONE][0]['fid'] = $file->fid;
+			   $product->field_image[LANGUAGE_NONE][0]['uid'] = $file->uid;
+			   $product->field_image[LANGUAGE_NONE][0]['filename'] = $file->filename;
+			   $product->field_image[LANGUAGE_NONE][0]['uri'] = $file->uri;
+			   $product->field_image[LANGUAGE_NONE][0]['filemime'] = $file->filename;
+			   $product->field_image[LANGUAGE_NONE][0]['filesize'] = $file->filesize;
+			   $product->field_image[LANGUAGE_NONE][0]['status'] = $file->status;
+			   $product->field_image[LANGUAGE_NONE][0]['timestamp'] = $file->timestamp;
+			   $product->field_image[LANGUAGE_NONE][0]['rdf_mapping'] = $file->rdf_mapping;
+			}
+			   commerce_product_save($product);
+		}
+	    if($form_state['values']['commerce_bulk_edit_color_filter'] == 1) {
+		    //dpm($products);
+			if($product->field_color[LANGUAGE_NONE][0]['value'] == $form_state['values']['commerce_bulk_edit_color']){
+				if ($form_state['values']['commerce_bulk_edit_price'] !== '') {
+				   $product->commerce_price[LANGUAGE_NONE][0]['amount'] = $form_state['values']['commerce_bulk_edit_price']*100;
+				   $product->commerce_price[LANGUAGE_NONE][0]['currency_code'] = 'USD';
+				}
+				if ($form_state['values']['commerce_bulk_edit_list_price'] !== '') {
+				   $product->field_sell_price[LANGUAGE_NONE][0]['amount'] = $form_state['values']['commerce_bulk_edit_list_price']*100;
+				   $product->field_sell_price[LANGUAGE_NONE][0]['currency_code'] = 'USD';
+				}
+				if ($form_state['values']['commerce_bulk_edit_image'] !== 0) {
+				   $product->field_image[LANGUAGE_NONE][0]['fid'] = $file->fid;
+				   $product->field_image[LANGUAGE_NONE][0]['uid'] = $file->uid;
+				   $product->field_image[LANGUAGE_NONE][0]['filename'] = $file->filename;
+				   $product->field_image[LANGUAGE_NONE][0]['uri'] = $file->uri;
+				   $product->field_image[LANGUAGE_NONE][0]['filemime'] = $file->filename;
+				   $product->field_image[LANGUAGE_NONE][0]['filesize'] = $file->filesize;
+				   $product->field_image[LANGUAGE_NONE][0]['status'] = $file->status;
+				   $product->field_image[LANGUAGE_NONE][0]['timestamp'] = $file->timestamp;
+				   $product->field_image[LANGUAGE_NONE][0]['rdf_mapping'] = $file->rdf_mapping;
+				}
+				   commerce_product_save($product);
+			}
+		}
     } 
+	
 }
+
 /*
 * Select Options callback
 */
 
 function commerce_product_display_options() {
+
 	$query = new EntityFieldQuery();
 	$query->entityCondition('entity_type', 'node')
 	->entityCondition('bundle', 'product_display');
@@ -119,6 +210,8 @@ function commerce_product_display_options() {
     foreach($nodes as $product_displays) {
       $select_options[$product_displays->nid] = $product_displays->title;
     }
+	asort($select_options);
+	
 
-    return $select_options;	
+    return $select_options;	 
 }

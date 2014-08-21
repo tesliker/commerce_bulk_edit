@@ -6,9 +6,17 @@ function commerce_bulk_edit_menu() {
     'description' => 'Bulk edit product form',
     'page callback' => 'drupal_get_form', //this is the function that will be called when the page is accessed.  for a form, use drupal_get_form
     'page arguments' => array('commerce_bulk_edit_form'), //put the name of the form here
-    'access callback' => TRUE
+    'access arguments' => array('administer bulk edits for products'),
   );
   return $items;
+}
+
+function commerce_bulk_edit_permission() {
+  return array(
+    'administer bulk edits for products' => array(
+      'title' => t('administer bulk edits for products'),
+    )
+  );
 }
 
 function commerce_bulk_edit_form($form, &$form_state) {
